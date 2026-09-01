@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Ping Monitor</title>
+    <link href="/output.css" rel="stylesheet">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center py-12 px-4">
+
+    <header class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl">
+        <h1 class="text-2xl font-bold mb-4 text-emerald-400">Site Ping Monitor</h1>
+        <p class="text-slate-400 text-sm mb-6">Введите URLs через запятую или по одному на строку для проверки доступности.</p>
+
+        <textarea id="urlsInput" rows="4" 
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-200 focus:outline-none focus:border-emerald-500 mb-4 font-mono text-sm"
+            placeholder="Example: https://github.com"></textarea>
+
+        <button id="checkBtn" 
+            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-lg transition-colors cursor-pointer">
+            Проверить
+        </button>
+
+        <div id="results" class="mt-6 space-y-3"></div>
+    </header>
+
+    <footer class="border-t border-gray-100 py-8 px-4 sm:px-6 lg:px-8 mt-auto">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+            <div class="flex items-center gap-2">
+                <span class="text-emerald-400 font-semibold">go-api-ping</span>
+                <span>— API & Сетевой мониторинг хостов</span>
+            </div>
+            <div class="flex items-center gap-6">
+                <a href="https://github.com/my-app-s/go-api-ping/wiki" class="hover:text-indigo-600 transition">Документация</a>
+                <a href="https://github.com/my-app-s/go-api-ping" class="hover:text-indigo-600 transition">GitHub</a>
+                <a href="https://github.com/my-app-s/go-api-ping/issues/new" class="hover:text-indigo-600 transition">Поддержка</a>
+            </div>
+            <div>
+                <span>© 2025-2026 my-app-s | <a href="https://github.com/my-app-s/go-api-ping/blob/main/LICENSE" class="hover:text-indigo-600 transition">AGPLv3 License</a></span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('checkBtn');
+            if (btn) {
+                btn.addEventListener('click', checkSites);
+            }
+        });
+
+        async function checkSites() {
+            console.log("Кнопка нажата, запуск проверки...");
+            const input = document.getElementById('urlsInput').value;
+            const urls = input
+                .split(/[\n,]+/) // Делим и по переносам строк, и по запятым
+                .map(u => u.trim())
+                .filter(u => u.length > 0);
+            const resultsDiv = document.getElementById('results');
+            
+            if (urls.length === 0) {
+                console.warn("Список URLs пуст");
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="text-slate-400 text-center animate-pulse">Проверяем...</p>';
+
+            try {
+                const response = await fetch('/api/ping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log("Ответ от API:", data);
+                
+                resultsDiv.innerHTML = data.map(item => {
+                    const isUp = item.status === 'UP';
+                    const badgeColor = isUp ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                    const latencyMs = (item.latency / 1000000).toFixed(2);
+
+                    return `
+                        <div class="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                            <div class="truncate mr-4">
+                                <span class="font-mono text-sm text-slate-300">${item.url}</span>
+                                ${item.error ? `<p class="text-xs text-rose-500 mt-1">${item.error}</p>` : ''}
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="text-xs font-mono text-slate-400">${latencyMs} ms</span>
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full border ${badgeColor}">${item.status}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Ошибка сети:", err);
+                resultsDiv.innerHTML = `<p class="text-rose-500 text-center">Ошибка соединения: ${err.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
