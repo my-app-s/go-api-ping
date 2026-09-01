@@ -1,123 +1,77 @@
 # Go API ping
 
-Отличный выбор. Переход на **scratch** и **Docker Compose** — это уже уровень production-практики: образ будет весить всего несколько мегабайт (без лишних утилит и шеллов внутри), а оркестрация через `compose.yml` позволит запускать всё одной командой.
+Production-ready Go-based API monitoring service with a secure concurrent engine, SSRF protection, multi-stage scratch Docker deployment, and automated CI/CD pipelines.
 
-Поскольку `scratch` — это абсолютная пустота (в нем нет даже корневых сертификатов `ca-certificates`, нужных для HTTPS-запросов к внешним сайтам, и стандартной зоны времени), нам нужно собрать бинарник со статической линковкой.
+## Stack
 
-Вот готовые файлы для этой конфигурации.
+* **Language**: Go (net/http, custom middleware, concurrency routines)
+* **Containerization**: Docker (multi-stage build with `scratch`), Docker Compose
+* **Frontend & Styling**: HTML5, Tailwind CSS (CLI optimized output / CDN fallback)
+* **CI/CD**: GitHub Actions (linting, automated tests, Docker Hub publishing)
+* **Hosting & Deployment**: [Render Live Web Services](https://go-api-ping.onrender.com)
 
-### 1. Обновленный `Dockerfile` (многоэтапная сборка + scratch)
+---
 
-Создай или перезапиши `Dockerfile` в корне проекта:
+## Architecture & Features
 
-```dockerfile
-# --- Этап сборки ---
-FROM golang:1.22-alpine AS builder
+* **SSRF Protection**: Validates target URLs, blocks local/private loops, and resolves host IPs to prevent internal network scanning.
+* **Concurrency Control**: Utilizes buffered channels as semaphores (`chan struct{}`) to safely limit concurrent TCP dial routines.
+* **Minimal Footprint**: Final production container is built on `scratch`, containing only the compiled static binary, SSL certificates, and asset files.
 
-# Устанавливаем git и ca-certificates (нужны для сборки и сертификатов)
-RUN apk add --no-cache git ca-certificates
+---
 
-WORKDIR /app
+## Quick Start & Local Development
 
-# Копируем исходники
-COPY src/ ./src/
+### 1. Run via Docker Compose
 
-WORKDIR /app/src
-
-# Собираем со статической линковкой (CGO_ENABLED=0), чтобы бинарник работал на scratch
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /ping-service main.go
-
-# --- Этап финального образа ---
-FROM scratch
-
-# Копируем SSL-сертификаты из сборщика, иначе HTTPS-запросы будут падать с ошибкой TLS
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-# Копируем скомпилированный бинарник
-COPY --from=builder /ping-service /ping-service
-
-EXPOSE 8080
-
-CMD ["/ping-service"]
-
-```
-
-### 2. Файл `compose.yml` в корне проекта
-
-Создай файл `compose.yml` (Docker Compose):
-
-```yaml
-version: '3.8'
-
-services:
-  ping-api:
-    build: .
-    container_name: site-ping-service
-    ports:
-      - "8080:8080"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "/ping-service"] # Для scratch можно опустить или использовать проверку портов, но compose поднимет контейнер штатно
-
-```
-
-### Как запустить:
-
-Собери и запусти проект одной командой:
+Build and launch the service locally in background mode:
 
 ```bash
 docker compose up --build -d
 
 ```
 
-Проверь логи контейнера:
+### 2. Run from Docker Hub Image
+
+Fetch and execute the pre-built production container:
 
 ```bash
-docker compose logs -f
+docker pull myappsdev/go-api-ping:latest
+docker run --rm -p 8080:8080 myappsdev/go-api-ping:latest
 
 ```
 
-И сделай тестовый `curl`:
+---
+
+## Testing & Verification
+
+### Test Root Endpoint (UI / Static Files)
+
+```bash
+curl -i http://localhost:8080/
+
+```
+
+### Test API Monitoring Endpoint
 
 ```bash
 curl -X POST http://localhost:8080/api/ping \
   -H "Content-Type: application/json" \
-  -d '{"urls": ["https://google.com", "https://github.com"]}'
+  -d '{"urls": ["https://google.com", "https://github.com", "https://invalid-url-test-123.com"]}'
 
 ```
 
-Проверь размер собранного образа через `docker images` — он должен приятно удивить своей компактностью. Как всё взлетит, дай знать, и перейдем к финальному штриху — интерфейсу на Vite + React + Tailwind!
+### Run Go Unit Tests & Formatters
 
 ```bash
-docker compose build --no-cache && docker compose up -d && clear && docker compose logs -f
+goimports -w .
+go test -v ./...
 
 ```
 
-```bash
-docker compose up --build -d
+---
 
-```
-
-```bash
-docker build -t site-ping-service-image:latest -f docker/Dockerfile .
-
-```
-
-```text
-GitHub-DockerHub-Render
-на гит хабе проверка workflow тест action обязательно при push
-
-```
-
-## Stack
-- Go
-- Docker
-- Docker compose
-- Yml
-- HTML
-- Tailwindcss
-- CI/CD
-- Render deploy
+## Tested Host Targets
 
 ```text
 https://www.google.com
@@ -143,34 +97,7 @@ https://www.stackoverflow.com
 
 ```
 
-## Tests
-
-```bash
-#!/bin/bash
-
-curl -X POST http://localhost:8080/api/ping \
-  -H "Content-Type: application/json" \
-  -d '{"urls": ["https://google.com", "https://github.com"]}'
-
-curl -X POST http://localhost:8080/api/ping \
-  -H "Content-Type: application/json" \
-  -d '{"urls": ["https://google.com", "https://github.com", "https://invalid-url-test-123.com"]}'
-
-```
-
-```html
-<!-- Подключаем Tailwind CSS через CDN -->
-<!--<link href="/output.css" rel="stylesheet">-->
-<!-- Подключаем Tailwind CSS через CDN for dev local-->
-<script src="https://cdn.tailwindcss.com"></script>
-
-```
-
-```bash
-goimports -w main_test.go
-go test -v ./...
-
-```
+---
 
 ## Disclaimer & License
 
