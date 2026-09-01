@@ -3,10 +3,6 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - 'LICENSE'
-      - '.gitignore'
-      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:

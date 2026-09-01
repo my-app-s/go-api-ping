@@ -2,8 +2,9 @@ name: Deploy to DockerHUB
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
     tags: [ 'v*' ]
+  workflow_dispatch:
 
 permissions:
   contents: read

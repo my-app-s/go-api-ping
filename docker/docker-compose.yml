@@ -1,0 +1,17 @@
+services:
+  ping-api:
+    # Имя получаемого образа при сборке
+    image: site-ping-service-image:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: site-ping-service
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - custom-net
+
+networks:
+  custom-net:
+    name: site-ping-service-network # Фиксированное имя сети в Docker
