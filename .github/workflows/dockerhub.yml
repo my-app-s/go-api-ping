@@ -2,16 +2,14 @@ name: Deploy to DockerHUB
 
 on:
   push:
-    branches: [ main ]
     tags: [ 'v*' ]
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: 'docker-build'
+  group: 'dockerhub'
   cancel-in-progress: true
 
 jobs:
