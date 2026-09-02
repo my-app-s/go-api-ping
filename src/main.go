@@ -4,13 +4,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"time"
 )
@@ -26,61 +26,79 @@ type PingResult struct {
 	Error   string        `json:"error,omitempty"`
 }
 
-// Защита от SSRF: проверка схемы и блокировка локальных/приватных адресов
-func isSafeURL(targetURL string) bool {
-	u, err := url.Parse(targetURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return false
+// isRestrictedIP проверяет IP на локальные, приватные, служебные диапазоны и облачные метаданные
+func isRestrictedIP(ip net.IP) bool {
+	if ip == nil {
+		return true
 	}
 
-	host := u.Hostname()
-	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
-		return false
+	// AWS / Cloud metadata IP: 169.254.169.254
+	metadataIPv4 := net.IPv4(169, 254, 169, 254)
+	if ip.Equal(metadataIPv4) {
+		return true
 	}
 
-	ip := net.ParseIP(host)
-	if ip != nil {
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() {
-			return false
-		}
-	}
-
-	return true
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsUnspecified()
 }
 
 func checkURL(targetURL string) PingResult {
-	if !isSafeURL(targetURL) {
-		return PingResult{URL: targetURL, Status: "DOWN", Error: "forbidden or invalid URL"}
-	}
-
 	u, err := url.Parse(targetURL)
-	if err != nil {
-		return PingResult{URL: targetURL, Status: "DOWN", Error: err.Error()}
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return PingResult{URL: targetURL, Status: "DOWN", Error: "forbidden or invalid URL scheme"}
 	}
 
-	host := u.Host
-	if !strings.Contains(host, ":") {
+	hostname := u.Hostname()
+	if hostname == "" {
+		return PingResult{URL: targetURL, Status: "DOWN", Error: "empty hostname"}
+	}
+
+	// Безопасное извлечение порта с учетом IPv6 и дефолтных схем
+	port := u.Port()
+	if port == "" {
 		if u.Scheme == "https" {
-			host += ":443"
+			port = "443"
 		} else {
-			host += ":80"
+			port = "80"
 		}
 	}
 
-	// Дополнительная проверка IP после резолва домена
-	ips, err := net.LookupIP(u.Hostname())
-	if err != nil {
-		return PingResult{URL: targetURL, Status: "DOWN", Error: "failed to resolve host"}
+	if hostname == "localhost" {
+		return PingResult{URL: targetURL, Status: "DOWN", Error: "forbidden internal host"}
 	}
-	for _, ip := range ips {
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Явный резолв IP перед подключением (устранение DNS Rebinding / TOCTOU)
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, hostname)
+	if err != nil {
+		return PingResult{URL: targetURL, Status: "DOWN", Error: "failed to resolve host: " + err.Error()}
+	}
+
+	var targetIP net.IP
+	for _, ipAddr := range ips {
+		ip := ipAddr.IP
+		if isRestrictedIP(ip) {
 			return PingResult{URL: targetURL, Status: "DOWN", Error: "forbidden internal IP"}
 		}
+		targetIP = ip
+		break // Берем первый валидный публичный IP
 	}
+
+	if targetIP == nil {
+		return PingResult{URL: targetURL, Status: "DOWN", Error: "no valid public IP found"}
+	}
+
+	// Соединяемся напрямую с уже проверенным IP, исключая повторный DNS-запрос
+	targetAddr := net.JoinHostPort(targetIP.String(), port)
 
 	start := time.Now()
 	dialer := net.Dialer{Timeout: 3 * time.Second}
-	conn, err := dialer.Dial("tcp", host)
+	conn, err := dialer.Dial("tcp", targetAddr)
 	latency := time.Since(start)
 
 	if err != nil {
@@ -101,12 +119,20 @@ func checkURL(targetURL string) PingResult {
 }
 
 func pingHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Ограничение размера входящего JSON до 64 КБ (защита от перегрузки памяти)
 	r.Body = http.MaxBytesReader(w, r.Body, 1024*64)
 
 	var req PingRequest
@@ -123,7 +149,6 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 	results := make([]PingResult, len(req.URLs))
 	var wg sync.WaitGroup
 
-	// Семафор для ограничения одновременных горутин (максимум 10 параллельных TCP-соединений)
 	sem := make(chan struct{}, 10)
 
 	for i, u := range req.URLs {
