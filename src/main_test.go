@@ -6,32 +6,45 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestIsSafeURL(t *testing.T) {
+func TestIsRestrictedIP(t *testing.T) {
 	tests := []struct {
-		url      string
+		ip       net.IP
 		expected bool
 	}{
-		{"https://google.com", true},
-		{"http://example.com/path", true},
-		{"http://localhost:8080", false},
-		{"http://127.0.0.1", false},
-		{"http://10.0.0.1", false},
-		{"http://192.168.1.1", false},
-		{"file:///etc/passwd", false},
-		{"ftp://example.com", false},
-		{"not-a-url", false},
+		{net.ParseIP("8.8.8.8"), false},
+		{net.ParseIP("1.1.1.1"), false},
+		{net.ParseIP("127.0.0.1"), true},
+		{net.ParseIP("10.0.0.1"), true},
+		{net.ParseIP("192.168.1.1"), true},
+		{net.ParseIP("169.254.169.254"), true},
+		{nil, true},
 	}
 
 	for _, tc := range tests {
-		actual := isSafeURL(tc.url)
+		actual := isRestrictedIP(tc.ip)
 		if actual != tc.expected {
-			t.Errorf("isSafeURL(%q) = %v; expected %v", tc.url, actual, tc.expected)
+			t.Errorf("isRestrictedIP(%v) = %v; expected %v", tc.ip, actual, tc.expected)
 		}
+	}
+}
+
+func TestCheckURL_InvalidScheme(t *testing.T) {
+	result := checkURL("file:///etc/passwd")
+	if result.Status != "DOWN" || result.Error == "" {
+		t.Errorf("Expected DOWN status and error for invalid scheme, got status=%s error=%s", result.Status, result.Error)
+	}
+}
+
+func TestCheckURL_Localhost(t *testing.T) {
+	result := checkURL("http://localhost:8080")
+	if result.Status != "DOWN" || result.Error == "" {
+		t.Errorf("Expected DOWN status and error for localhost, got status=%s error=%s", result.Status, result.Error)
 	}
 }
 
@@ -47,7 +60,6 @@ func TestPingHandler_MethodNotAllowed(t *testing.T) {
 }
 
 func TestPingHandler_PayloadTooLarge(t *testing.T) {
-	// Создаем очень длинный массив URL, чтобы размер JSON превысил 64 КБ
 	urls := make([]string, 2000)
 	for i := range urls {
 		urls[i] = "https://example.com/very/long/path/to/exceed/sixty/four/kilobytes/limit/in/request/body"
@@ -87,8 +99,8 @@ func TestPingHandler_TooManyURLs(t *testing.T) {
 func TestPingHandler_ValidAndUnsafeURLs(t *testing.T) {
 	payload := PingRequest{
 		URLs: []string{
-			"http://127.0.0.1", // Небезопасный URL (должен вернуть статус DOWN из-за SSRF фильтра)
-			"https://invalid-domain-name-that-does-not-exist-12345.com", // Несуществующий хост
+			"http://127.0.0.1",
+			"https://invalid-domain-name-that-does-not-exist-12345.com",
 		},
 	}
 	body, _ := json.Marshal(payload)
