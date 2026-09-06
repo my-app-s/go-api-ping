@@ -5,11 +5,15 @@ Production-ready Go-based API monitoring service with a secure concurrent engine
 ![Go Version](https://img.shields.io/badge/Go-1.27%2B-blue.svg)
 ![License](https://img.shields.io/badge/License-GNU%20AGPLv3-red.svg)
 ![Status](https://img.shields.io/badge/Status-Stabel-green)
-![Status Docker Hub](https://github.com/my-app-s/go-api-ping/actions/workflows/build-deploy-docker.yml/badge.svg)
-![Status GitHub Pages](https://github.com/my-app-s/go-api-ping/actions/workflows/deploy-pages.yml/badge.svg)
-![Status Test](https://github.com/my-app-s/go-api-ping/actions/workflows/run-tests.yml/badge.svg)
 ![Latest Tag](https://img.shields.io/github/v/tag/my-app-s/go-api-ping)
 ![Service Status](https://img.shields.io/badge/Render-Online-green?style=flat&logo=render)
+
+> Status Github Actions
+> 
+> ![Status Docker Hub](https://github.com/my-app-s/go-api-ping/actions/workflows/build-deploy-docker.yml/badge.svg)
+> ![Status GitHub Pages](https://github.com/my-app-s/go-api-ping/actions/workflows/deploy-pages.yml/badge.svg)
+> ![Status Test](https://github.com/my-app-s/go-api-ping/actions/workflows/run-tests.yml/badge.svg)
+
 
 ## Stack
 
