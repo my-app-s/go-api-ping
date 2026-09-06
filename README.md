@@ -113,6 +113,11 @@ https://www.stackoverflow.com
 
 ```
 
+```text
+https://www.google.com,https://www.youtube.com,https://www.facebook.com,https://www.instagram.com,https://www.wikipedia.org,https://www.reddit.com,https://www.yahoo.com,https://www.amazon.com,https://www.twitter.com,https://www.netflix.com,https://www.linkedin.com,https://www.github.com,https://www.microsoft.com,https://www.apple.com,https://www.twitch.tv,https://www.spotify.com,https://www.pinterest.com,https://www.adobe.com,https://www.wordpress.org,https://www.stackoverflow.com
+
+```
+
 ---
 
 ## Disclaimer & License
