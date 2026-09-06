@@ -1,0 +1,38 @@
+name: Run Tests
+
+on:
+  push:
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflows }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and Test Go Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: 'go.mod'
+          cache: true
+
+      - name: Get dependencies
+        run: |
+          cd src
+          if [ -f go.mod ]; then go mod tidy; fi
+
+      - name: Run tests
+        run: |
+          cd src
+          go test -v ./...
