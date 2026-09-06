@@ -2,15 +2,14 @@
 
 Production-ready Go-based API monitoring service with a secure concurrent engine, SSRF protection, multi-stage scratch Docker deployment, and automated CI/CD pipelines.
 
-> [!NOTE]
-> 
-> ![Go Version](https://img.shields.io/badge/Go-1.27+%2B-blue.svg)
-> ![License](https://img.shields.io/badge/License-GNU%20AGPLv3-red.svg)
-> ![Status](https://img.shields.io/badge/Status-Dev-orange)
-> ![Docker Hub CI/CD](https://github.com/my-app-s/go-api-ping/actions/workflows/dockerhub.yml/badge.svg)
-> ![GitHub Pages](https://github.com/my-app-s/go-api-ping/actions/workflows/pages.yml/badge.svg)
-> ![Latest Tag](https://img.shields.io/github/v/tag/my-app-s/go-api-ping)
-> ![Service Status](https://img.shields.io/badge/Render-Online-green?style=flat&logo=render)
+![Go Version](https://img.shields.io/badge/Go-1.27%2B-blue.svg)
+![License](https://img.shields.io/badge/License-GNU%20AGPLv3-red.svg)
+![Status](https://img.shields.io/badge/Status-Stabel-green)
+![Status Docker Hub](https://github.com/my-app-s/go-api-ping/actions/workflows/build-deploy-docker.yml/badge.svg)
+![Status GitHub Pages](https://github.com/my-app-s/go-api-ping/actions/workflows/deploy-pages.yml/badge.svg)
+![Status Test](https://github.com/my-app-s/go-api-ping/actions/workflows/run-tests.yml/badge.svg)
+![Latest Tag](https://img.shields.io/github/v/tag/my-app-s/go-api-ping)
+![Service Status](https://img.shields.io/badge/Render-Online-green?style=flat&logo=render)
 
 ## Stack
 
