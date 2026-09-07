@@ -22,8 +22,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      - name: Checkout Generator Repository
+      - name: Build with Go and Tailwind CLI
         uses: my-app-s/go-generator@v1
+        with:
+          config: 'config.json'
+          readme: 'README.md'
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
