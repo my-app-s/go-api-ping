@@ -14,7 +14,6 @@ Production-ready Go-based API monitoring service with a secure concurrent engine
 > ![Status GitHub Pages](https://github.com/my-app-s/go-api-ping/actions/workflows/deploy-pages.yml/badge.svg)
 > ![Status Test](https://github.com/my-app-s/go-api-ping/actions/workflows/run-tests.yml/badge.svg)
 
-
 ## Stack
 
 * **Language**: Go (net/http, custom middleware, concurrency routines)
