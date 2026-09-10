@@ -45,7 +45,7 @@ func isRestrictedIP(ip net.IP) bool {
 		ip.IsUnspecified()
 }
 
-func checkURL(targetURL string) PingResult {
+func checkURL(ctx context.Context, targetURL string) PingResult {
 	u, err := url.Parse(targetURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return PingResult{URL: targetURL, Status: "DOWN", Error: "forbidden or invalid URL scheme"}
@@ -70,11 +70,11 @@ func checkURL(targetURL string) PingResult {
 		return PingResult{URL: targetURL, Status: "DOWN", Error: "forbidden internal host"}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	// Явный резолв IP перед подключением (устранение DNS Rebinding / TOCTOU)
-	ips, err := net.DefaultResolver.LookupIPAddr(ctx, hostname)
+	ips, err := net.DefaultResolver.LookupIPAddr(reqCtx, hostname)
 	if err != nil {
 		return PingResult{URL: targetURL, Status: "DOWN", Error: "failed to resolve host: " + err.Error()}
 	}
@@ -85,8 +85,10 @@ func checkURL(targetURL string) PingResult {
 		if isRestrictedIP(ip) {
 			return PingResult{URL: targetURL, Status: "DOWN", Error: "forbidden internal IP"}
 		}
-		targetIP = ip
-		break // Берем первый валидный публичный IP
+		// Берем первый безопасный, но убеждаемся, что цикл прошел без ошибок
+		if targetIP == nil {
+			targetIP = ip
+		}
 	}
 
 	if targetIP == nil {
@@ -157,7 +159,7 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			results[index] = checkURL(targetURL)
+			results[index] = checkURL(r.Context(), targetURL)
 		}(i, u)
 	}
 
